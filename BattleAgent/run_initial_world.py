@@ -170,7 +170,7 @@ for repeat in range(EPISODES):
             lock_on = steve.master_lock(ob, agent_host)
 
             try:
-                state = steve.get_state(ob, time_alive)
+                steve.get_state(ob, time_alive)
             except KeyError as k:
                 print("Key Error:", k)
                 CLEARS += 1
@@ -223,14 +223,18 @@ for repeat in range(EPISODES):
                     nn.epsilon *= nn.epsilon_decay
             else:
                 arena_bonus = 0
+                 
+            if next_state[4] < state[0][4]: # 暂未使用
+                hit_bonus = 10000
+            else:
+                hit_bonus = 0
 
             steve_loc = (next_state[2], 0, next_state[3])
             mob_distance = (steve.calculate_distance(steve_loc, steve.entities[steve.target]) + 3)
             # reward = ((next_state[0] * 20) - (next_state[4] * 200) - (time_alive * 4) + player_bonus +
             #           kill_bonus + arena_bonus - (mob_distance * 5))  # get reward
-            reward = (((next_state[0]**2)*5) - ((next_state[4]**2)*5) - (time_alive**4) + player_bonus +
-                      kill_bonus + arena_bonus - (800*mob_distance))  # get reward TODO: 可能要把距离惩罚调大一点再把击杀奖励调高一点
-            # TODO: 砍怪惩罚
+            reward = (((next_state[0]**2)*5) - ((next_state[4]**2)*5) - (time_alive**2) + player_bonus +
+                      kill_bonus + arena_bonus - (800*mob_distance)) #+ hit_bonus  # get reward TODO: 可能要把距离惩罚调大一点再把击杀奖励调高一点
             if repeat > 0:
                 rewards.append(reward)
                 ALL_REWARDS.append(reward)
@@ -239,6 +243,9 @@ for repeat in range(EPISODES):
             next_state = np.reshape(next_state, [1, state_size])
             if repeat > 0:
                 nn.remember(state, action, reward, next_state, done)
+            print("state:",state)
+            print("next state",next_state)
+            print(state==next_state)
             state = next_state
             if done:
                 print("DONE TRIGGERED")
