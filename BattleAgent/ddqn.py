@@ -1,4 +1,3 @@
-from operator import mod
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,16 +8,23 @@ import numpy as np
 class DQNModule(nn.Module):
     def __init__(self, input_size, output_size) -> None:
         super().__init__()
-        self.f1 = nn.Linear(input_size, 25)
-        self.f2 = nn.Linear(25, 16)
-        self.f3 = nn.Linear(16, output_size)
+        self.f1 = nn.Linear(input_size, 24)
+        self.f1.weight.data.normal_(0, 0.1)
+        self.f2 = nn.Linear(24, 32)
+        self.f2.weight.data.normal_(0, 0.1)
+        self.f3 = nn.Linear(32, 16)
+        self.f3.weight.data.normal_(0, 0.1)
+        self.f4 = nn.Linear(16, output_size)
+        self.f4.weight.data.normal_(0, 0.1)
     
     def forward(self, x):
         x = self.f1(x)
         x = F.relu(x)
         x = self.f2(x)
         x = F.relu(x)
-        return self.f3(x)
+        x = self.f3(x)
+        x = F.relu(x)
+        return self.f4(x)
 
 class DQNAgent:
     def __init__(self, state_size, action_size) -> None:
@@ -36,8 +42,8 @@ class DQNAgent:
         self.memory = np.zeros((self.memory_capacity, state_size * 2 + 2)) # (s[:7], a[7], r[8], s_[9:])
         self.memory_count = 0
         self.steps = 0
-        self.optimizer = torch.optim.Adam(self.eval_net.parameters(), lr=LR)
-        self.loss_func = nn.MSELoss()
+        self.optimizer = torch.optim.SGD(self.eval_net.parameters(), lr=LR)
+        self.loss_func = nn.SmoothL1Loss()
 
     def update_target_model(self):
         self.target_net.load_state_dict(self.eval_net.state_dict())
@@ -71,8 +77,9 @@ class DQNAgent:
         batch_r = torch.LongTensor(self.memory[sample_index, 8]).unsqueeze(1)
 
         q_eval = self.eval_net.forward(batch_s).gather(1, batch_a)
-        q_next = self.target_net.forward(batch_s_).detach()
-        q_target = batch_r + self.gamma * q_next.max(1, keepdim=True)[0]
+        with torch.no_grad():
+            q_next = self.target_net.forward(batch_s_)
+            q_target = batch_r + self.gamma * q_next.max(1, keepdim=True)[0]
         loss = self.loss_func(q_eval, q_target)
 
         self.optimizer.zero_grad() 

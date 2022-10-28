@@ -157,7 +157,7 @@ for repeat in range(EPISODES):
     mobs_left = mob_number
     rewards = []
     while world_state.is_mission_running:
-        time.sleep(float(config.get('DEFAULT', 'TIME_STEP')) / time_multiplier)  # discretize time/actions
+        time.sleep(float(config.get('DEFAULT', 'TIME_STEP')) / time_multiplier)
         world_state = agent_host.getWorldState()
         for error in world_state.errors:
             print("World State Error:", error.text)
@@ -188,6 +188,7 @@ for repeat in range(EPISODES):
             state = np.reshape(state, [1, state_size])
             action = nn.act(state)
             steve.perform_action(agent_host, action)  # send action to malmo
+            time.sleep(float(config.get('DEFAULT', 'TIME_STEP')) / time_multiplier)  # discretize time/actions
             msg = world_state.observations[-1].text
             ob = json.loads(msg)
             steve.get_mob_loc(ob)  # update entities in steve
@@ -202,13 +203,16 @@ for repeat in range(EPISODES):
 
             if next_state[0] == 0:  # steve dying
                 # player_bonus = -500
-                player_bonus = -50000
+                if -10 <= next_state[2] <= 10 and -10 <= next_state[3] <= 10:
+                    player_bonus = -5000
+                else:
+                    player_bonus = -15000
             else:
                 player_bonus = 0
 
             if (len(steve.entities.keys()) < mobs_left):  # steve getting kills
                 # kill_bonus = 400  # this method does not work, need a new method
-                kill_bonus += 20000  # this method does not work, need a new method
+                kill_bonus += 10000  # this method does not work, need a new method
                 mobs_left -= 1
                 if nn.epsilon > nn.epsilon_min:
                     nn.epsilon *= nn.epsilon_decay
@@ -217,35 +221,47 @@ for repeat in range(EPISODES):
                 pass
             if next_state[4] == 0:  # steve clearing arena
                 # arena_bonus = 500
-                arena_bonus = 20000
+                arena_bonus = 10000
                 CLEARS += 1
                 if nn.epsilon > nn.epsilon_min:
                     nn.epsilon *= nn.epsilon_decay
             else:
                 arena_bonus = 0
                  
-            if next_state[4] < state[0][4]: # 暂未使用
-                hit_bonus = 10000
+            if action == 4:
+                if next_state[4] < state[0][4]: 
+                    hit_bonus = 7500
+                    print("*HIT!*")
+                else:
+                    hit_bonus = 5000 # 可以考虑不要这个
             else:
                 hit_bonus = 0
 
+            if next_state[0] < state[0][0]: 
+                hurt_bonus = -1000
+            else:
+                hurt_bonus = 0
+
+            if action == 3:
+                coward_bonus = -5000
+            else: 
+                coward_bonus = 0
+
             steve_loc = (next_state[2], 0, next_state[3])
             mob_distance = (steve.calculate_distance(steve_loc, steve.entities[steve.target]) + 3)
+            safe_distance = np.sqrt(next_state[2]**2 + next_state[3]**2)
+            reward = hit_bonus + hurt_bonus + arena_bonus + player_bonus + coward_bonus - (2*(safe_distance**3)) - ((mob_distance**3))
             # reward = ((next_state[0] * 20) - (next_state[4] * 200) - (time_alive * 4) + player_bonus +
             #           kill_bonus + arena_bonus - (mob_distance * 5))  # get reward
-            reward = (((next_state[0]**2)*5) - ((next_state[4]**2)*5) - (time_alive**2) + player_bonus +
-                      kill_bonus + arena_bonus - (800*mob_distance)) #+ hit_bonus  # get reward TODO: 可能要把距离惩罚调大一点再把击杀奖励调高一点
-            if repeat > 0:
-                rewards.append(reward)
-                ALL_REWARDS.append(reward)
-                GRAPH.animate_episode(range(0, timestep + 1), ALL_REWARDS)
-                timestep += 1
+            #reward = (((next_state[0]**2)*5) - ((next_state[4]**2)*5) - (time_alive**2) + player_bonus +
+            #          kill_bonus + arena_bonus - (500*mob_distance)) #+ hit_bonus  # get reward TODO: 可能要把距离惩罚调大一点再把击杀奖励调高一点,hurt_bonus再调小？
+            rewards.append(reward)
+            ALL_REWARDS.append(reward)
+            GRAPH.animate_episode(range(0, timestep + 1), ALL_REWARDS)
+            timestep += 1
             next_state = np.reshape(next_state, [1, state_size])
-            if repeat > 0:
-                nn.remember(state, action, reward, next_state, done)
-            print("state:",state)
-            print("next state",next_state)
-            print(state==next_state)
+            nn.remember(state, action, reward, next_state, done)
+                
             state = next_state
             if done:
                 print("DONE TRIGGERED")
@@ -262,10 +278,9 @@ for repeat in range(EPISODES):
         print('Saving file to {}'.format(nn_save))
         nn.save(nn_save)
 
-        # MAIN NN LOGIC
-    if repeat > 0:
-        REWARDS_DICT[repeat] = sum(rewards) / len(rewards)
-        GRAPH.animate(list(REWARDS_DICT.keys()), list(REWARDS_DICT.values()))
+    # MAIN NN LOGIC
+    REWARDS_DICT[repeat] = sum(rewards) / len(rewards)
+    GRAPH.animate(list(REWARDS_DICT.keys()), list(REWARDS_DICT.values()))
 
     print('Loss: {}'.format(loss)) # 打印loss
     print('SUCCESS RATE: {} / {} = {}%'.format(CLEARS, repeat + 1, (CLEARS / (repeat + 1)) * 100))

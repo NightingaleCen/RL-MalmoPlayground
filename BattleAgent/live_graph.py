@@ -24,6 +24,7 @@ class Graph:
         self.ax.set_title('Average Reward per Episode')
         self.ax.set_xlabel('Episode')
         self.ax.set_ylabel('Average Reward')
+        plt.savefig('Average Reward per Episode.png')
         plt.pause(0.001)
 
     def animate_episode(self, xs, ys):
@@ -32,6 +33,7 @@ class Graph:
         self.ax2.set_title('Real-Time Rewards')
         self.ax2.set_xlabel('Timestep')
         self.ax2.set_ylabel('Reward')
+        plt.savefig('Real-Time Rewards.png')
         plt.pause(0.001)
 
     def clear_episode(self):
