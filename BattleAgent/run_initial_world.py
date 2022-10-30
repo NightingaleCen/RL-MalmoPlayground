@@ -4,7 +4,7 @@ import time
 
 try:
     from malmo import MalmoPython
-except:
+except BaseException:
     import MalmoPython
 import steve_agent
 import live_graph
@@ -45,9 +45,20 @@ CLEARS = 0
 MAX_SUCCESS_RATE = 0
 GRAPH = live_graph.Graph()
 REWARDS_DICT = {}
+WINS_DICT = {}
 ALL_REWARDS = []
+WIN_COUNT = 0
 timestep = 0
-
+loss = 0
+wins_in_ten = np.zeros(10)
+log_str = "log/log-{}.txt".format(time.strftime("%Y-%m-%d-%H:%M",
+                              time.localtime()))
+with open(log_str, 'w') as f:
+    f.write(
+        "Begin at {}\n".format(
+            time.strftime(
+                "%Y-%m-%d-%H:%M",
+                time.localtime())))
 # command line arguments
 try:
     arg_check = sys.argv[1].lower()  # using arguments from command line
@@ -61,8 +72,11 @@ try:
             mob_number = int(sys.argv[2])
         else:
             mob_number = 1
-        print(("\nTRAINING AGENT ON {} {}(S)").format(mob_number, mob_type.upper()))
-except:
+        print(
+            ("\nTRAINING AGENT ON {} {}(S)").format(
+                mob_number,
+                mob_type.upper()))
+except BaseException:
     print("\nError in argument parameters. Defaulting to 1 zombie")
     mob_type = 'zombie'
     mob_number = 1
@@ -73,15 +87,16 @@ if (len(sys.argv) > 3):
         nn_save = ("save/{}.h5").format(sys.argv[3])
         nn.load(nn_save)
         print("Save Model successfully imported")
-    except:
+    except BaseException:
         print("Save model not found. Training new agent")
         nn_save = ("save/{}.h5").format(sys.argv[3])
         del nn
-        nn = DQNAgent(state_size, action_size)  # need to restablish nn because load failed
+        # need to restablish nn because load failed
+        nn = DQNAgent(state_size, action_size)
 else:
-    nn_save = "save/ddqn-status-defaults-save.h5"
+    nn_save = "save/ddqn-save-{}.h5".format(
+        time.strftime("%Y-%m-%d-%H:%M", time.localtime()))
 
-loss = 0
 # starting training loop
 for repeat in range(EPISODES):
     kill_bonus = 0
@@ -97,7 +112,12 @@ for repeat in range(EPISODES):
     max_retries = 3
     for retry in range(max_retries):
         try:
-            agent_host.startMission(my_mission, my_client_pool, my_mission_record, 0, "test")
+            agent_host.startMission(
+                my_mission,
+                my_client_pool,
+                my_mission_record,
+                0,
+                "test")
             break
         except RuntimeError as e:
             if retry == max_retries - 1:
@@ -127,7 +147,10 @@ for repeat in range(EPISODES):
     world_state_json = json.loads(world_state_txt)
     agent_name = world_state_json['Name']
 
-    agent_host.sendCommand("chat /replaceitem entity " + agent_name + " slot.weapon.offhand minecraft:shield")
+    agent_host.sendCommand(
+        "chat /replaceitem entity " +
+        agent_name +
+        " slot.weapon.offhand minecraft:shield")
 
     time.sleep(1 / time_multiplier)
 
@@ -135,13 +158,15 @@ for repeat in range(EPISODES):
     print("Mission running ", end=' ')
 
     agent_host.sendCommand('chat EPISODE: {}'.format(repeat))
-    agent_host.sendCommand('chat SUCCESS RATE: {}'.format((CLEARS / (repeat + 1)) * 100))
+    agent_host.sendCommand('chat SUCCESS RATE: {}'.format(
+        (CLEARS / (repeat + 1)) * 100))
 
     x = world_state_json['XPos']
     y = world_state_json['YPos']
     z = world_state_json['ZPos']
     for i in range(mob_number):
-        spawn_command = 'chat /summon {} {} {} {}'.format(mob_type, x - 8, y, z - 8 + (i * 2))
+        spawn_command = 'chat /summon {} {} {} {}'.format(
+            mob_type, x - 8, y, z - 8 + (i * 2))
         if mob_type == 'zombie':
             spawn_command += ' {IsBaby:0}'
         agent_host.sendCommand(spawn_command)
@@ -175,7 +200,7 @@ for repeat in range(EPISODES):
                 print("Key Error:", k)
                 CLEARS += 1
                 if nn.epsilon > nn.epsilon_min:
-                    nn.epsilon *= nn.epsilon_decay  #每成功一次都减小EPSILON的值，大概
+                    nn.epsilon *= nn.epsilon_decay  # 每成功一次都减小EPSILON的值，大概
                 agent_host.sendCommand("quit")
                 break
 
@@ -188,13 +213,14 @@ for repeat in range(EPISODES):
             state = np.reshape(state, [1, state_size])
             action = nn.act(state)
             steve.perform_action(agent_host, action)  # send action to malmo
-            time.sleep(float(config.get('DEFAULT', 'TIME_STEP')) / time_multiplier)  # discretize time/actions
+            #time.sleep(float(config.get('DEFAULT', 'TIME_STEP')) /
+            #           time_multiplier)  # discretize time/actions
             msg = world_state.observations[-1].text
             ob = json.loads(msg)
             steve.get_mob_loc(ob)  # update entities in steve
             next_state = steve.get_state(ob, time_alive)
 
-            if (repeat == EPISODES - 1): #TODO: 意味着5000 episodes才更新一次网络？？需要调整这个超参数
+            if (repeat == EPISODES - 1):  # TODO: 意味着5000 episodes才更新一次网络？？需要调整这个超参数
                 done = True
             else:
                 done = False
@@ -206,12 +232,13 @@ for repeat in range(EPISODES):
                 if -10 <= next_state[2] <= 10 and -10 <= next_state[3] <= 10:
                     player_bonus = -5000
                 else:
-                    player_bonus = -15000
+                    player_bonus = -20000
             else:
                 player_bonus = 0
 
             if (len(steve.entities.keys()) < mobs_left):  # steve getting kills
-                # kill_bonus = 400  # this method does not work, need a new method
+                # kill_bonus = 400  # this method does not work, need a new
+                # method
                 kill_bonus += 10000  # this method does not work, need a new method
                 mobs_left -= 1
                 if nn.epsilon > nn.epsilon_min:
@@ -227,50 +254,54 @@ for repeat in range(EPISODES):
                     nn.epsilon *= nn.epsilon_decay
             else:
                 arena_bonus = 0
-                 
+
             if action == 4:
-                if next_state[4] < state[0][4]: 
-                    hit_bonus = 7500
+                if next_state[4] < state[0][4]:
+                    hit_bonus = 10000
                     print("*HIT!*")
                 else:
-                    hit_bonus = 5000 # 可以考虑不要这个
+                    hit_bonus = 7500  # 可以考虑不要这个
             else:
                 hit_bonus = 0
 
-            if next_state[0] < state[0][0]: 
+            if next_state[0] < state[0][0]:
                 hurt_bonus = -1000
             else:
                 hurt_bonus = 0
 
             if action == 3:
-                coward_bonus = -5000
-            else: 
+                coward_bonus = -5000 #暂时不用
+            else:
                 coward_bonus = 0
 
             steve_loc = (next_state[2], 0, next_state[3])
-            mob_distance = (steve.calculate_distance(steve_loc, steve.entities[steve.target]) + 3)
-            safe_distance = np.sqrt(next_state[2]**2 + next_state[3]**2)
-            reward = hit_bonus + hurt_bonus + arena_bonus + player_bonus + coward_bonus - (2*(safe_distance**3)) - ((mob_distance**3))
+            mob_distance = (steve.calculate_distance(
+                steve_loc, steve.entities[steve.target]) + 3) 
+            safe_distance = np.sqrt(next_state[2]**2 + next_state[3]**2) - 7 
+            reward = hit_bonus + hurt_bonus + arena_bonus + player_bonus - \
+                (5 * (safe_distance**3)) - \
+                (5 * (mob_distance**3))
             # reward = ((next_state[0] * 20) - (next_state[4] * 200) - (time_alive * 4) + player_bonus +
             #           kill_bonus + arena_bonus - (mob_distance * 5))  # get reward
-            #reward = (((next_state[0]**2)*5) - ((next_state[4]**2)*5) - (time_alive**2) + player_bonus +
-            #          kill_bonus + arena_bonus - (500*mob_distance)) #+ hit_bonus  # get reward TODO: 可能要把距离惩罚调大一点再把击杀奖励调高一点,hurt_bonus再调小？
+            # reward = (((next_state[0]**2)*5) - ((next_state[4]**2)*5) - (time_alive**2) + player_bonus +
+            # kill_bonus + arena_bonus - (500*mob_distance)) #+ hit_bonus  #
+            # get reward
             rewards.append(reward)
             ALL_REWARDS.append(reward)
             GRAPH.animate_episode(range(0, timestep + 1), ALL_REWARDS)
             timestep += 1
             next_state = np.reshape(next_state, [1, state_size])
             nn.remember(state, action, reward, next_state, done)
-                
+
             state = next_state
             if done:
                 print("DONE TRIGGERED")
-                nn.update_target_model()    # 不太明白是干啥的 
+                nn.update_target_model()    # 不太明白放在这里是干啥的
                 print("episode: {}/{}, score: {}, e: {:.2}"
                       .format(repeat, EPISODES, time, nn.epsilon))
                 break
             if nn.memory_count > batch_size:  # it will decay eps
-                loss = nn.replay(batch_size) # 保存loss作为监控指标
+                loss = nn.replay(batch_size)  # 保存loss作为监控指标
             if (arena_bonus != 0):  # just some quick spaghetti to get us out of NN loop after cleared arena hehe
                 agent_host.sendCommand("quit")
                 break
@@ -282,8 +313,39 @@ for repeat in range(EPISODES):
     REWARDS_DICT[repeat] = sum(rewards) / len(rewards)
     GRAPH.animate(list(REWARDS_DICT.keys()), list(REWARDS_DICT.values()))
 
-    print('Loss: {}'.format(loss)) # 打印loss
-    print('SUCCESS RATE: {} / {} = {}%'.format(CLEARS, repeat + 1, (CLEARS / (repeat + 1)) * 100))
-    print("Mission ended")
-    print()
+    if arena_bonus != 0:
+        wins_in_ten[repeat % 10] = 1
+        WIN_COUNT += 1
+    else:
+        wins_in_ten[repeat % 10] = 0
+        WIN_COUNT = 0
+
+    WINS_DICT[repeat] = np.sum(wins_in_ten) / 10 * 100
+    GRAPH.animate_wins(list(WINS_DICT.keys()), list(WINS_DICT.values()))
+
+    with open(log_str, 'a') as f:
+        print('Loss: {}'.format(loss))  # 打印loss
+        print(
+            'SUCCESS RATE IN LAST TEN REPEATS: {}%'.format(
+                np.sum(wins_in_ten) / 10 * 100))
+        print('TOTAL SUCCESS RATE: {} / {} = {}%'.format(CLEARS,
+              repeat + 1, (CLEARS / (repeat + 1)) * 100))
+        print("Mission ended")
+        f.write('Loss: {}\n'.format(loss))  # 打印loss
+        f.write(
+            'SUCCESS RATE IN LAST TEN REPEATS: {}%\n'.format(
+                np.sum(wins_in_ten) / 10 * 100))
+        f.write('TOTAL SUCCESS RATE: {} / {} = {}%\n'.format(CLEARS,
+                repeat + 1, (CLEARS / (repeat + 1)) * 100))
+        f.write("Mission ended\n")
     # Mission has ended.
+
+    if WIN_COUNT == 20: #TODO:fine tune
+        print("Training finished at episode {}!".format(repeat))
+        print("Model saved to {}!".format(nn_save))
+        nn.update_target_model()
+        nn_save = nn_save.split('.')
+        nn_save[0] += '-done'
+        nn_save = '.'.join(nn_save)
+        nn.save(nn_save)
+        sys.exit()

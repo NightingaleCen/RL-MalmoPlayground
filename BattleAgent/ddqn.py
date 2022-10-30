@@ -9,7 +9,7 @@ class DQNModule(nn.Module):
     def __init__(self, input_size, output_size) -> None:
         super().__init__()
         self.f1 = nn.Linear(input_size, 24)
-        self.f1.weight.data.normal_(0, 0.1)
+        self.f1.weight.data.normal_(0, 0.1) 
         self.f2 = nn.Linear(24, 32)
         self.f2.weight.data.normal_(0, 0.1)
         self.f3 = nn.Linear(32, 16)
@@ -59,7 +59,7 @@ class DQNAgent:
 
     def act(self, state):
         state = torch.unsqueeze(torch.FloatTensor(state), 0)
-        if np.random.normal() >= self.epsilon:
+        if np.random.rand() >= self.epsilon:
             actions = self.eval_net.forward(state).flatten()
             action = torch.max(actions, 0)[1].data.numpy()
         else:

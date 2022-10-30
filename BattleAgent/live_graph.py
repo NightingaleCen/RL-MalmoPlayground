@@ -15,6 +15,11 @@ class Graph:
         plt.title('Real-Time Rewards')
         plt.xlabel('Timestep')
         plt.ylabel('Reward')
+        self.fig3 = plt.figure(figsize=(6, 3))
+        self.ax3 = self.fig3.add_subplot(1, 1, 1)
+        plt.title('Winning Rate in Every 10 Episodes')
+        plt.xlabel('Episode')
+        plt.ylabel('Winning Rate')
         plt.ion()
         plt.pause(0.001)
 
@@ -24,7 +29,7 @@ class Graph:
         self.ax.set_title('Average Reward per Episode')
         self.ax.set_xlabel('Episode')
         self.ax.set_ylabel('Average Reward')
-        plt.savefig('Average Reward per Episode.png')
+        self.fig.savefig('Average Reward per Episode.png')
         plt.pause(0.001)
 
     def animate_episode(self, xs, ys):
@@ -33,7 +38,16 @@ class Graph:
         self.ax2.set_title('Real-Time Rewards')
         self.ax2.set_xlabel('Timestep')
         self.ax2.set_ylabel('Reward')
-        plt.savefig('Real-Time Rewards.png')
+        self.fig2.savefig('Real-Time Rewards.png')
+        plt.pause(0.001)
+    
+    def animate_wins(self, xs, ys):
+        self.ax3.clear()
+        self.ax3.plot(xs, ys)
+        self.ax3.set_title('Winning Rate in Every 10 Episodes')
+        self.ax3.set_xlabel('Episode')
+        self.ax3.set_ylabel('Winning Rate')
+        self.fig3.savefig('Winning Rate in Every 10 Episodes.png')
         plt.pause(0.001)
 
     def clear_episode(self):

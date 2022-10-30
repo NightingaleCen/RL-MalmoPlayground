@@ -33,7 +33,7 @@ class Steve(object):
             return False
         target_yaw, target_pitch = self.calcYawAndPitchToMob(self.entities[self.target], 
             agent_info[0], agent_info[1], agent_info[2], self.mob_height)
-        pointing = self.lock_on(agent_host, ob, target_pitch, target_yaw, 3)
+        pointing = self.lock_on(agent_host, ob, target_pitch, target_yaw, 2)
         return True
 
 
@@ -44,10 +44,10 @@ class Steve(object):
         delta_pitch = self.angvel(target_pitch, pitch, 25.0)
         agent_host.sendCommand("turn " + str(delta_yaw/(time_multiplier)*1.5))
         agent_host.sendCommand("pitch " + str(delta_pitch/(time_multiplier)*1.5))
-        # if abs(pitch - target_pitch) + abs(yaw - target_yaw) < threshhold:
-        #     agent_host.sendCommand("turn 0")
-        #     agent_host.sendCommand("pitch 0")
-        #     return True
+        if abs(pitch - target_pitch) + abs(yaw - target_yaw) < threshhold:
+            agent_host.sendCommand("turn 0")
+            agent_host.sendCommand("pitch 0")
+            return True
         return False
 
     def angvel(self, target, current, scale):
@@ -119,14 +119,14 @@ class Steve(object):
             agent_host.sendCommand("move -.5")
             time_to_block = (float(config.get('DEFAULT', 'TIME_STEP')) / time_multiplier) * action_fraction
            # time.sleep(time_to_block)
-        elif action == actions.STRIKE:
+        elif action == actions.STRIKE: #TODO: 2 停下来再a or block?
             # print("striking")
             agent_host.sendCommand("attack 1")
             time_to_strike = (float(config.get('DEFAULT', 'TIME_STEP')) / time_multiplier) * action_fraction
             time.sleep(time_to_strike)
             agent_host.sendCommand("attack 0")
         elif action == actions.BLOCK:
-            # print("blocking")
+            #print("blocking")
             agent_host.sendCommand("use 1")
             time_to_block = (float(config.get('DEFAULT', 'TIME_STEP'))/time_multiplier) * action_fraction
             time.sleep(time_to_block)
