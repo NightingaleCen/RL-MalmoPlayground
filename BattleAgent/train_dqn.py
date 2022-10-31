@@ -28,7 +28,7 @@ if agent_host.receivedArgument("help"):
     print(agent_host.getUsage())
     exit(0)
 
-with open('world.xml', 'r') as file:
+with open('training_world.xml', 'r') as file:
     missionXML = file.read()
 
 my_client_pool = MalmoPython.ClientPool()
@@ -340,7 +340,7 @@ for repeat in range(EPISODES):
         f.write("Mission ended\n")
     # Mission has ended.
 
-    if WIN_COUNT == 20: #TODO:fine tune
+    if WIN_COUNT == 30: 
         print("Training finished at episode {}!".format(repeat))
         print("Model saved to {}!".format(nn_save))
         nn.update_target_model()

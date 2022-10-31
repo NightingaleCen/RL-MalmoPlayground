@@ -25,7 +25,7 @@ class Steve(object):
         self.target = None
         self.entities = None
 
-    def master_lock(self, ob, agent_host):
+    def master_lock(self, ob, agent_host, is_testing=False):
         agent_info = (ob.get(u'XPos', 0), ob.get(u'YPos', 0), ob.get(u'ZPos', 0))
         self.get_mob_loc(ob)
         self.closest_enemy(agent_info, self.entities)
@@ -33,17 +33,21 @@ class Steve(object):
             return False
         target_yaw, target_pitch = self.calcYawAndPitchToMob(self.entities[self.target], 
             agent_info[0], agent_info[1], agent_info[2], self.mob_height)
-        pointing = self.lock_on(agent_host, ob, target_pitch, target_yaw, 2)
+        pointing = self.lock_on(agent_host, ob, target_pitch, target_yaw, 2, is_testing)
         return True
 
 
-    def lock_on(self, agent_host, ob, target_pitch, target_yaw, threshhold):
+    def lock_on(self, agent_host, ob, target_pitch, target_yaw, threshhold, is_testing):
+        if is_testing == True:
+            lockspeed_multiplier = 3
+        else:
+            lockspeed_multiplier = 1.5
         pitch = ob.get(u'Pitch', 0)
         yaw = ob.get(u'Yaw', 0)
         delta_yaw = self.angvel(target_yaw, yaw, 25.0)
         delta_pitch = self.angvel(target_pitch, pitch, 25.0)
-        agent_host.sendCommand("turn " + str(delta_yaw/(time_multiplier)*1.5))
-        agent_host.sendCommand("pitch " + str(delta_pitch/(time_multiplier)*1.5))
+        agent_host.sendCommand("turn " + str(delta_yaw/(time_multiplier)*lockspeed_multiplier))
+        agent_host.sendCommand("pitch " + str(delta_pitch/(time_multiplier)*lockspeed_multiplier))
         if abs(pitch - target_pitch) + abs(yaw - target_yaw) < threshhold:
             agent_host.sendCommand("turn 0")
             agent_host.sendCommand("pitch 0")
@@ -119,7 +123,7 @@ class Steve(object):
             agent_host.sendCommand("move -.5")
             time_to_block = (float(config.get('DEFAULT', 'TIME_STEP')) / time_multiplier) * action_fraction
            # time.sleep(time_to_block)
-        elif action == actions.STRIKE: #TODO: 2 停下来再a or block?
+        elif action == actions.STRIKE: 
             # print("striking")
             agent_host.sendCommand("attack 1")
             time_to_strike = (float(config.get('DEFAULT', 'TIME_STEP')) / time_multiplier) * action_fraction
