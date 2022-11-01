@@ -2,3 +2,5 @@
 */save/*.h5
 */log/*.txt
 */*.png
+*/save
+*/log
