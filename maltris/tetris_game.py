@@ -112,24 +112,8 @@ class TetrisGame:
                 new_x = 0
             if new_x > cols - len(self.piece[0]):
                 new_x = cols - len(self.piece[0])
-            if not check_collision(self.board,
-                                   self.piece,
-                                   (new_x, self.piece_y)):
+            if not check_collision(self.board, self.piece, (new_x, self.piece_y)):
                 self.piece_x = new_x
-        '''
-        self.piece_x += delta_x
-        if check_collision(self.board,
-                           self.piece,
-                           (self.piece_x, self.piece_y + 1)):
-            self.piece_x -= delta_x
-            return
-        self.piece_x = 0 if self.piece_x < 0 else self.piece_x
-        self.piece_x = cols - len(self.piece[0]) if self.piece_x > cols - len(self.piece[0]) else self.piece_x
-        # self.board = join_matrixes(
-        #     self.board,
-        #     self.piece,
-        #     (self.piece_x, self.piece_y))
-        '''
 
     def drop(self, manual):
         if not self.gameover:
@@ -168,7 +152,7 @@ class TetrisGame:
                 pass
 
     def drop_no_draw(self, manual):
-        # piece下落一个单位
+        # piece下落
         if not self.gameover:
             if check_collision(self.board,
                                self.piece,
@@ -217,34 +201,36 @@ class TetrisGame:
         ######TODO: fill your code here#########
         ########################################
         for cy, row in enumerate(self.piece):
-            for cx, val in enumerate(row):
-                if val != 0:
-                    # 这个函数是没有传入x坐标的版本，因此直接用self的piece_x即可
-                    self.agent_host.sendCommand("chat /setblock " + str(0 + self.piece_x + cx) + " " + str(80 - self.piece_y - cy) + " 3 wool " + str(val))
+            for cx, col in enumerate(row):
+                if col != 0:
+                    self.agent_host.sendCommand("chat /setblock " + str(0 + self.piece_x + cx) + " "
+                                                + str(80 - self.piece_y - cy) + " 3 wool " + str(col))
         return
 
     def draw_piece2(self, piece, x=0):
         ########################################
         ######TODO: fill your code here#########
         ########################################
-        for cy, row in enumerate(self.piece):
-            for cx, val in enumerate(row):
-                if val != 0:
-                    # 将填充的数值作为颜色信息，发送给agent_host
-                    # x表示piece的起始横坐标
-                    self.agent_host.sendCommand("chat /setblock " + str(0 + cx + x) + " " + str(80 - cy) + " 3 wool " + str(val))
-                elif val == 0:
-                    self.agent_host.sendCommand("chat /setblock " + str(0 + cx + x) + " " + str(80 - cy) + " 3 air")
+
+        for cy, row in enumerate(piece):
+            for cx, col in enumerate(row):
+                if col != 0:
+                    self.agent_host.sendCommand("chat /setblock " + str(0 + cx + x) + " "
+                                                + str(80 - cy) + " 3 wool " + str(col))
+                elif col == 0:
+                    self.agent_host.sendCommand("chat /setblock " + str(0 + cx + x) + " "
+                                                + str(80 - cy) + " 3 air")
         return
 
     def erase_piece(self):
         for cy, row in enumerate(self.piece):
             for cx, col in enumerate(row):
                 if col != 0:
-                    self.agent_host.sendCommand("chat /setblock " + str(0 + self.piece_x + cx) + " " + str(80 - self.piece_y - cy) + " 3 air")
+                    self.agent_host.sendCommand("chat /setblock " + str(0 + self.piece_x + cx) + " "
+                                                + str(80 - self.piece_y - cy) + " 3 air")
 
     def clear_draw_pieces(self):
         for cy, row in enumerate(self.board[:-1]):
             for cx, col in enumerate(row):
-                if self.board[cy][cx] != 0:
+                if (self.board[cy][cx] != 0):
                     self.agent_host.sendCommand("chat /setblock " + str(0 + cx) + " " + str(80 - cy) + " 3 air")

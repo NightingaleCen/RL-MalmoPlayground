@@ -11,7 +11,7 @@ import copy
 import numpy
 from numpy import zeros
 
-sys.stdout = os.fdopen(sys.stdout.fileno(), 'w')  # flush print output immediately
+# sys.stdout = os.fdopen(sys.stdout.fileno(), 'w')  # flush print output immediately
 
 rewards_map = {'inc_height': -20, 'clear_line': 50, 'holes': -20, 'top_height':-100}
 
@@ -103,27 +103,42 @@ class TetrisAI:
 
             T = sys.maxsize
             for t in range(sys.maxsize):
-                # time.sleep(0.1)
+                # print("episode{}".format(str(t)))
+                time.sleep(0.1)
                 if t < T:
                     curr_reward = self.act(next_action)
                     rewards.append(curr_reward)
-
-                    curr_state = copy.deepcopy(self.get_curr_state())
-                    # print("now_state", curr_state)
-                    states.append(curr_state)
-                    next_action = self.choose_action(curr_state, self.get_possible_actions())
-                    actions.append(next_action)
-                    time.sleep(0.5)
+                    # curr_state = copy.deepcopy(self.get_curr_state())
+                    # # print("now_state", curr_state)
+                    # states.append(curr_state)
+                    # next_action = self.choose_action(curr_state, self.get_possible_actions())
+                    # actions.append(next_action)
+                    # time.sleep(0.5)
 
                     if self.game.gameover == True:
                         self.listGameLvl.append(self.game.level)
                         self.listClears.append(self.game.line_clears)
                         print("level {}".format(self.game.level))
+                        print("line clears {}".format(self.game.line_clears))
                         self.game.start_game()
+                        game_overs += 1
+                        self.gamesplayed += 1
+
+                        if game_overs == 5:
+                            print("Best attempt, gamesplayed: ", self.gamesplayed,
+                                  " avg levels: ", numpy.mean(self.listGameLvl),
+                                  " avg clears: ", numpy.mean(self.listClears))
+                            game_overs = 0
 
                     ########################################
                     ######TODO: fill your code here#########
                     ########################################
+                    curr_state = copy.deepcopy(self.get_curr_state())
+                    # print("now_state", curr_state)
+                    states.append(curr_state)
+                    next_action = self.choose_action(curr_state, self.get_possible_actions())
+                    actions.append(self.normalize(self.pred_insta_drop2(next_action)))
+                    time.sleep(0.5)
 
                 tau = t - self.n + 1
                 if tau >= 0:
@@ -136,7 +151,7 @@ class TetrisAI:
                     done_update = True
                     break
 
-                if t%5000 == 0:
+                if t%1000 == 0:
                     self.saveQtable()  # uncomment to save Q-table values
                     print("------------------Saving Qtable------------")
                     time.sleep(0.1)
@@ -147,7 +162,7 @@ class TetrisAI:
             self.game.rotate_piece()
         # 旋转好了之后，一路下落
         self.game.move(action[0] - self.game.piece_x)
-        m_score =  self.score(self.pred_insta_drop2(action))
+        m_score = self.score(self.pred_insta_drop2(action))
         # self.game.insta_drop_no_draw()
         self.game.insta_drop()
         return m_score
@@ -188,19 +203,52 @@ class TetrisAI:
         ########################################
         ######TODO: fill your code here#########
         ########################################
-        actions.append(action)
+        for i in range(4):
+            piece_x = 0
+            piece_y = self.game.piece_y
+
+            while piece_x <= self.game.rlim - len(self.game.piece[0]):
+                if not check_collision(self.game.board,
+                                       self.game.piece,
+                                       (piece_x, piece_y)):
+                    if action not in actions:
+                        actions.append(action)
+                piece_x += 1
+                action = (action[0] + 1, action[1])
+                piece_y = self.game.piece_y
+            self.game.rotate_piece()
+            action = (0, action[1] + 1)
+        self.game.rotate_piece()
 
         return actions
 
     def score(self, board):
         current_r = 0
         complete_lines = 0
-        heighest = 0
-        holes = 0
+        highest = 0
 
         ########################################
         ######TODO: fill your code here#########
         ########################################
+        new_board = board[-2::-1]
+        for row in new_board:
+            if 0 not in row:
+                complete_lines += 1
+        current_r += complete_lines * rewards_map['clear_line']
+
+        for i, row in enumerate(new_board):
+            if all(j == 0 for j in row):
+                highest = i
+
+        current_r += (highest - 2) * rewards_map['top_height']
+
+        heights = zeros((len(new_board[0]),), dtype=int)
+        for i, row in enumerate(new_board):
+            for j, col in enumerate(row):
+                if col != 0:
+                    heights[j] = i + 1
+        aggregate_height = sum(heights)
+        current_r += aggregate_height * rewards_map['inc_height']
 
         return current_r
 
@@ -213,7 +261,7 @@ class TetrisAI:
 
     def pred_insta_drop(self, piece, piece_x, piece_y):
         # 相比drop2，没有action的空间
-        new_board = copy.deepcopy(board)
+        new_board = copy.deepcopy(self.game.board)
 
         while not check_collision(new_board,
                            piece,
@@ -268,7 +316,29 @@ class TetrisAI:
         #######################################
         ######TODO: fill your code here#########
         ########################################
-        best_action = (0,0)
+        # 没出现过的新state，加入q_table
+        if curr_state not in self.q_table:
+            self.q_table[curr_state] = {}
+        # 逐个查找其他state
+        for action in possible_actions:
+            state = magic(self.normalize(self.pred_insta_drop2(action)))
+            if state not in self.q_table[curr_state]:
+                self.q_table[curr_state][state] = 0
+
+        e = numpy.random.random()
+        if e < self.epsilon:
+            action = numpy.random.randint(0, len(possible_actions) - 1)
+            best_action = possible_actions[action]
+        else:
+            best_action = possible_actions[0]
+            best_next_state = magic(self.normalize(
+                self.pred_insta_drop2(possible_actions[0])))
+            qvals = self.q_table[curr_state]
+            for action in possible_actions:
+                state = magic(self.normalize(self.pred_insta_drop2(action)))
+                if qvals[state] >= qvals[best_next_state]:
+                    best_next_state = state
+                    best_action = action
         return best_action
 
     def update_q_table(self, tau, S, A, R, T):
@@ -276,6 +346,15 @@ class TetrisAI:
         ########################################
         ######TODO: fill your code here#########
         ########################################
+        state = magic(curr_a)
+        G = sum([self.gamma ** i * R[i] for i in range(len(S))])
+        if tau + self.n < T:
+            G += self.gamma ** self.n * self.q_table[magic(S[-1])][magic(A[-1])]
+
+        print("episode reward {}".format(G))
+        old_q = self.q_table[curr_s][state]
+        # 使用baseline方法，减小variance
+        self.q_table[curr_s][state] = old_q + self.alpha * (G - old_q)
 
 if __name__ == "__main__":
     random.seed(0)
