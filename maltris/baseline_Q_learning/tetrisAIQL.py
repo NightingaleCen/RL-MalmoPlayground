@@ -13,9 +13,9 @@ from numpy import zeros
 
 # sys.stdout = os.fdopen(sys.stdout.fileno(), 'w')  # flush print output immediately
 
-rewards_map = {'inc_height': -20, 'clear_line': 50, 'holes': -20, 'top_height':-100}
+rewards_map = {'inc_height': -8, 'clear_line': 100, 'holes': -5, 'top_height': -100}
 
-missionXML='''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+missionXML = '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
     <Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
         <About>
             <Summary>Tetris!</Summary>
@@ -47,15 +47,21 @@ missionXML='''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
         </AgentSection>
     </Mission>'''
 
+
 def magic(X):
+    # for i in X:
+    #     print(i)
+    # print(''.join(str(i) for i in X))
     return ''.join(str(i) for i in X)
+
 
 QLfilename = 'maltrisQLTable.save'
 QLgraphfilename = 'maltrisQLGraphData.save'
 
+
 class TetrisAI:
-    def __init__(self, game, alpha=0.3, gamma=1, n=1):
-        self.epsilon = 0.3
+    def __init__(self, game, alpha=0.3, gamma=0.8, n=1):
+        self.epsilon = 0.05
         self.q_table = {}
         self.n, self.alpha, self.gamma = n, alpha, gamma
         self.gamesplayed = 0
@@ -76,13 +82,13 @@ class TetrisAI:
 
     def loadQtable(self):
         f = open(QLfilename, 'rb')
-        self.gamesplayed = pickle.load(f,encoding='iso-8859-1')
-        self.q_table = pickle.load(f,encoding='iso-8859-1')
+        self.gamesplayed = pickle.load(f, encoding='iso-8859-1')
+        self.q_table = pickle.load(f, encoding='iso-8859-1')
         f.close()
         f2 = open(QLgraphfilename, 'rb')
-        self.gamesplayed = pickle.load(f2,encoding='iso-8859-1')
-        self.listGameLvl = pickle.load(f2,encoding='iso-8859-1')
-        self.listClears = pickle.load(f2,encoding='iso-8859-1')
+        self.gamesplayed = pickle.load(f2, encoding='iso-8859-1')
+        self.listGameLvl = pickle.load(f2, encoding='iso-8859-1')
+        self.listClears = pickle.load(f2, encoding='iso-8859-1')
         f2.close()
 
     def run(self, agent_host):
@@ -90,7 +96,8 @@ class TetrisAI:
         curr_reward = 0
         done_update = False
         game_overs = 0
-        self.loadQtable() #uncomment to load Q-table values
+        self.loadQtable()  # uncomment to load Q-table values
+
         while not done_update:
             init_state = self.get_curr_state()
             possible_actions = self.get_possible_actions()
@@ -98,13 +105,18 @@ class TetrisAI:
             # print("init_state", init_state)
             states.append(init_state)
             actions.append(self.normalize(self.pred_insta_drop2(next_action)))
+            # actions.append(next_action)
             # print("actions", actions)
             rewards.append(0)
 
-            T = sys.maxsize
-            for t in range(sys.maxsize):
+            # T = sys.maxsize
+            T = 5000
+            print("maxsize T:", T)
+            for t in range(T):
+                with open('qtables/' + str(t) + '.txt', 'w') as file:
+                    file.write(str(self.q_table))
                 # print("episode{}".format(str(t)))
-                time.sleep(0.1)
+                time.sleep(0.05)
                 if t < T:
                     curr_reward = self.act(next_action)
                     rewards.append(curr_reward)
@@ -121,6 +133,7 @@ class TetrisAI:
                         print("level {}".format(self.game.level))
                         print("line clears {}".format(self.game.line_clears))
                         self.game.start_game()
+                        print("restart")
                         game_overs += 1
                         self.gamesplayed += 1
 
@@ -151,10 +164,14 @@ class TetrisAI:
                     done_update = True
                     break
 
-                if t%1000 == 0:
+                if t % 1000 == 0:
                     self.saveQtable()  # uncomment to save Q-table values
                     print("------------------Saving Qtable------------")
                     time.sleep(0.1)
+
+        print("final save")
+        self.saveQtable()
+
 
     def act(self, action):
         # 本函数为与环境交互的函数，action为2维向量，第一维表示平移多少，第二维表示旋转多少
@@ -162,9 +179,12 @@ class TetrisAI:
             self.game.rotate_piece()
         # 旋转好了之后，一路下落
         self.game.move(action[0] - self.game.piece_x)
-        m_score = self.score(self.pred_insta_drop2(action))
+        # m_score = self.score(self.pred_insta_drop2(action))
         # self.game.insta_drop_no_draw()
+        old_lines = self.game.line_clears
         self.game.insta_drop()
+        new_lines = self.game.line_clears
+        m_score = (new_lines - old_lines) * rewards_map['clear_line']
         return m_score
 
     def get_curr_state(self):
@@ -176,41 +196,41 @@ class TetrisAI:
                 if i < 2:
                     new_state = board[0:2]
                     # 0/1二值化操作
-                    new_state = [[1 if x!= 0 else x for x in row]for row in new_state]
+                    new_state = [[1 if x != 0 else x for x in row] for row in new_state]
                     return new_state
                 else:
-                    new_state = board[i-2:i]
-                    new_state = [[1 if x!= 0 else x for x in row]for row in new_state]
+                    new_state = board[i - 2:i]
+                    new_state = [[1 if x != 0 else x for x in row] for row in new_state]
                     return new_state
 
     def normalize(self, state):
-        # 把整个游戏的game board变成了输入的state
+        # 倒序取n-1行
         board = state[-2::-1]
         for i, row in enumerate(board):
             if all(j == 0 for j in row):
                 if i < 2:
                     new_state = board[0:2]
-                    new_state = [[1 if x!= 0 else x for x in row]for row in new_state]
+                    new_state = [[1 if x != 0 else x for x in row] for row in new_state]
                     return new_state
                 else:
-                    new_state = board[i-2:i]
-                    new_state = [[1 if x!= 0 else x for x in row]for row in new_state]
+                    new_state = board[i - 2:i]
+                    new_state = [[1 if x != 0 else x for x in row] for row in new_state]
                     return new_state
 
     def get_possible_actions(self):
+        # get_possible_actions定义的action可能有点问题？没问题！
         actions = []
-        action = (0,0)
+        action = (0, 0)
         ########################################
         ######TODO: fill your code here#########
         ########################################
+        # 旋转检查
         for i in range(4):
             piece_x = 0
             piece_y = self.game.piece_y
-
+            # 横移检查
             while piece_x <= self.game.rlim - len(self.game.piece[0]):
-                if not check_collision(self.game.board,
-                                       self.game.piece,
-                                       (piece_x, piece_y)):
+                if not check_collision(self.game.board, self.game.piece, (piece_x, piece_y)):
                     if action not in actions:
                         actions.append(action)
                 piece_x += 1
@@ -218,7 +238,7 @@ class TetrisAI:
                 piece_y = self.game.piece_y
             self.game.rotate_piece()
             action = (0, action[1] + 1)
-        self.game.rotate_piece()
+        # self.game.rotate_piece()
 
         return actions
 
@@ -230,25 +250,35 @@ class TetrisAI:
         ########################################
         ######TODO: fill your code here#########
         ########################################
-        new_board = board[-2::-1]
+        new_board = board[-2::-1]  # 只是去除掉了最后一行！其他的倒序排列
+        # print(new_board)
+        # 对完成的行给予奖励
         for row in new_board:
             if 0 not in row:
                 complete_lines += 1
+                # print("complete lines!+1")
         current_r += complete_lines * rewards_map['clear_line']
+        # print(current_r)
 
+        # 倒序查找最低的全0行
         for i, row in enumerate(new_board):
             if all(j == 0 for j in row):
                 highest = i
 
-        current_r += (highest - 2) * rewards_map['top_height']
+        # 对最高层过高给予惩罚
+        # current_r += (highest - 2) * rewards_map['top_height']
 
         heights = zeros((len(new_board[0]),), dtype=int)
         for i, row in enumerate(new_board):
             for j, col in enumerate(row):
                 if col != 0:
                     heights[j] = i + 1
-        aggregate_height = sum(heights)
-        current_r += aggregate_height * rewards_map['inc_height']
+        # 对累计层数给予惩罚
+        # aggregate_height = sum(heights)
+        # current_r += aggregate_height * rewards_map['inc_height']
+        print("score", current_r)
+        # if current_r > 100:
+            # print("clear one line!")
 
         return current_r
 
@@ -264,8 +294,8 @@ class TetrisAI:
         new_board = copy.deepcopy(self.game.board)
 
         while not check_collision(new_board,
-                           piece,
-                           (piece_x, piece_y+1)):
+                                  piece,
+                                  (piece_x, piece_y + 1)):
             piece_y += 1
 
         piece_y += 1
@@ -297,8 +327,8 @@ class TetrisAI:
 
         # piece下落
         while not check_collision(new_board,
-                           new_piece,
-                           (new_piece_x, new_piece_y+1)):
+                                  new_piece,
+                                  (new_piece_x, new_piece_y + 1)):
             new_piece_y += 1
 
         new_piece_y += 1
@@ -356,52 +386,53 @@ class TetrisAI:
         # 使用baseline方法，减小variance
         self.q_table[curr_s][state] = old_q + self.alpha * (G - old_q)
 
+
 if __name__ == "__main__":
     random.seed(0)
 
-    #Initialize agent_host
+    # Initialize agent_host
     agent_host = MalmoPython.AgentHost()
     try:
-        agent_host.parse( sys.argv )
+        agent_host.parse(sys.argv)
     except RuntimeError as e:
-        print("ERROR:",e)
+        print("ERROR:", e)
         print(agent_host.getUsage())
         exit(1)
     if agent_host.receivedArgument("help"):
         print(agent_host.getUsage())
         exit(0)
 
-    #Initialize Mission
+    # Initialize Mission
     mission = MalmoPython.MissionSpec(missionXML, True)
     mission.allowAllChatCommands()
     mission.forceWorldReset()
     mission_record = MalmoPython.MissionRecordSpec()
 
-    #Build Tetris Board
-    left_x, right_x = -1, -1+cols+1
-    bottom_y, top_y = 68, 68+rows+1
+    # Build Tetris Board
+    left_x, right_x = -1, -1 + cols + 1
+    bottom_y, top_y = 68, 68 + rows + 1
     z_pos = 3
-    mission.drawLine( left_x, bottom_y, z_pos, left_x, top_y, z_pos, "obsidian" )
-    mission.drawLine( right_x, bottom_y, z_pos, right_x, top_y, z_pos, "obsidian" )
-    mission.drawLine( left_x, bottom_y, z_pos, right_x, bottom_y, z_pos, "obsidian" )
-    mission.drawLine( left_x, top_y, z_pos, right_x, top_y, z_pos, "obsidian" )
-    for i in range(-1,cols):
-        mission.drawLine(i, bottom_y, z_pos-1, i, bottom_y+rows, z_pos-1, "quartz_block")
+    mission.drawLine(left_x, bottom_y, z_pos, left_x, top_y, z_pos, "obsidian")
+    mission.drawLine(right_x, bottom_y, z_pos, right_x, top_y, z_pos, "obsidian")
+    mission.drawLine(left_x, bottom_y, z_pos, right_x, bottom_y, z_pos, "obsidian")
+    mission.drawLine(left_x, top_y, z_pos, right_x, top_y, z_pos, "obsidian")
+    for i in range(-1, cols):
+        mission.drawLine(i, bottom_y, z_pos - 1, i, bottom_y + rows, z_pos - 1, "quartz_block")
 
-    #Attempt to start Mission
+    # Attempt to start Mission
     max_retries = 3
     for retry in range(max_retries):
         try:
-            agent_host.startMission( mission, mission_record )
+            agent_host.startMission(mission, mission_record)
             break
         except RuntimeError as e:
             if retry == max_retries - 1:
-                print("Error starting mission:",e)
+                print("Error starting mission:", e)
                 exit(1)
             else:
                 time.sleep(2)
 
-    #Loop until mission starts
+    # Loop until mission starts
     print("Waiting for the mission to start")
     world_state = agent_host.getWorldState()
     while not world_state.has_mission_begun:
@@ -409,7 +440,7 @@ if __name__ == "__main__":
         time.sleep(0.1)
         world_state = agent_host.getWorldState()
         for error in world_state.errors:
-            print("Error:",error.text)
+            print("Error:", error.text)
     print()
     print("Mission running")
 

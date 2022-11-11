@@ -5,7 +5,7 @@ import time
 from random import randrange as rand
 import copy
 
-rewards_map = {'inc_height': -8, 'clear_line': 30, 'holes': -5, 'top_height': -100}
+rewards_map = {'inc_height': -8, 'clear_line': 100, 'holes': -5, 'top_height': -100}
 
 colors = ["Lime_Wool", "Orange_Wool", "Blue_Wool", "Pink_Wool", "Red_Wool",
           "Magenta_Wool", "Yellow_Wool"]
@@ -15,13 +15,13 @@ rows = 12
 
 # Define the shapes of the single parts
 tetris_shapes = [
-    [[0, 1],
-     [0, 0]],
+    [[0, 0],
+     [0, 1]],
 
-    [[2, 2],
-     [0, 0]],
+    [[0, 0],
+     [2, 2]],
 
-    [[0, 3],
+    [[3, 0],
      [3, 0]],
 
     [[0, 4],
@@ -134,6 +134,7 @@ class TetrisGame:
                     for i, row in enumerate(self.board[:-1]):
                         if 0 not in row:
                             self.board = remove_row(self.board, i)
+                            # print("oh yeah! one line cleared!")
                             self.draw_piece2(self.board[:-1])
                             self.line_clears += 1
                             check_board = True
