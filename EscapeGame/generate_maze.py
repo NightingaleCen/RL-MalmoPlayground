@@ -108,14 +108,14 @@ class Maze:
         exit3 = (exit3, self.w-1)
 
         self.key_grid = [exit0, exit1, exit2, exit3]
-        self.grid = grid;
+        self.grid = grid
 
 
     def generate_xml(self):
         str_xml = self.init_str()
         grid = self.get_grid()
         key_cells = self.get_key_cells()
-
+        # 用于生成carpet、netherrack，上面是carpet下面是netherrack
         for i in range(self.h):
             for j in range(self.w):
                 if grid[i][j] == 1:
@@ -127,13 +127,13 @@ class Maze:
                             j + 1, j + 1, i + 1, i + 1)
 
                     str_xml = str_xml + carpet_str + nether_str
-
+        # 用于生成emerald_blck
         for k in range(0, len(key_cells)-1):
             i = key_cells[k][0]
             j = key_cells[k][1]
             key_grid_str = '<DrawCuboid x1="{0}" y1="227" z1="{2}" x2="{1}" y2="229" z2="{3}" type="emerald_block"/>\n'.format(j + 1, j + 1, i + 1, i + 1)
             str_xml = str_xml + key_grid_str
-        # add fire block
+        # add fire block 在内圈第一个格子
         key_grid_str = '<DrawCuboid x1="{0}" y1="227" z1="{2}" x2="{1}" y2="227" z2="{3}" type="fire"/>\n'.format(1,1,1,1)
         str_xml = str_xml + key_grid_str
 

@@ -11,8 +11,8 @@ import time							# sleep for a few ticks every trial
 import os							# os.system.clear()
 import random						# random start delay
 import world						# world manipulation/observation functions
-
-
+import pickle
+import matplotlib.pyplot as plt
 # ==============================================================================
 # CONFIGURATIONS
 # ==============================================================================
@@ -23,12 +23,27 @@ logging.basicConfig(level=logging.DEBUG)
 #logging.getLogger().disabled = True
 
 # external file info
-mission_xml = "mission6.xml"		
+mission_xml = "mission6.xml"
 
 
 # ==============================================================================
 # MAIN FUNCTIONS
 # ==============================================================================
+
+def draw_success_rate(num_reps, wr_table):
+	x_i = list(range(int(num_reps/100)))
+	try:
+		success_rate.remove(success_rate[0])
+	except Exception:
+		pass
+	plt.grid(True, linestyle=':', color='r', alpha=0.6)
+	plt.title('Success Rate in Training')
+	plt.xlabel('Repeat Number')
+	plt.ylabel('Success Rate')
+	success_rate = plt.plot([i+1 for i in x_i], wr_table, 'yo-')
+	with open('./success_rate_train.png', 'wb') as f:
+		plt.savefig(f)
+
 def regular_run():
 	# get agent_host
 	agent_host = MalmoPython.AgentHost()
@@ -47,6 +62,8 @@ def regular_run():
 	wr_table = [0] * 20
 	wr_i = 0
 	
+	save_file = os.path.join('.', 'q_table.pkl')
+
 	# regular run test info
 	#moveable_blocks = [-311, -313, -315]
 	#moveable_blocks = [-313, -314]
@@ -55,7 +72,7 @@ def regular_run():
 	possible_arrow_x_pos.append(None)
 	
 	# continuously repeat trials
-	num_reps = 500	# 将会重复多少次
+	num_reps = 2000	# 将会重复多少次
 	for rep in range(num_reps):
 		os.system("clear")
 		
@@ -82,18 +99,30 @@ def regular_run():
 		num_wins += 1 if success == True else 0
 		win_rate = round(num_wins/num_runs, 3)	# 3位小数
 		wr_table[wr_i] = win_rate
-		if rep > 0 and rep % 25 == 0:
+		if rep > 0 and rep % 100 == 0:
 			wr_i += 1
 			num_wins = num_runs = 0
-			
+			# try:
+			draw_success_rate(num_reps, wr_table)
+			# except Exception:
+				# pass
+			with open(save_file, 'wb') as tf:
+				pickle.dump(dodger.q_table, tf)
 		
 		# damaged or completion: soft refresh the world
 		logging.info("end mission " + str(num_runs) + ": " + str(total_reward))
 		world.soft_refresh(agent_host, dodger)
 		time.sleep(random.uniform(0.1, 0.8))
-			
+
 	logging.info("reached max reps")
 	print(wr_table)
+	# print q_table
+	print()
+	print('^^^^^^q_table^^^^^^')
+	print()
+	# for i in moveable_blocks:
+	# 	print(dodger.q_table[i])
+	# 	print()
 
 def hard_coded_run():
 	# get agent_host

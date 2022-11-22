@@ -27,7 +27,7 @@ class Dodger(object):
 		self.start_pos = None			# init in world.refresh(...)
 		self.dispenser_pos = None		# init in world.refresh(...)
 		self.life = 0					# init in world.refresh(...)
-		self.sleep_time	= 0.05			# time to sleep after action
+		self.sleep_time	= 0.05			# time to sleep after action    0.05
 		
 	# USE FOR 1 ARROW TESTING PURPOSES ONLY
 	def print_1arrow_q_table(self, moveable_blocks, possible_arrow_x_pos):
@@ -88,10 +88,10 @@ class Dodger(object):
 		cumul_multi = 1
 
 		# initialize reward multipliers and success flag
-		DAMAGE = -10000
-		COMPLETE = 10000
-		WAIT = 0.8
-		AVOID = 5
+		DAMAGE = -100
+		COMPLETE = 100
+		WAIT = 0.5
+		AVOID = 3
 		success = None
 		
 		# damaged: extremely low reward and success = False
@@ -213,7 +213,7 @@ class Dodger(object):
 					success = False
 					return total_reward, success
 
-				if t < T:	
+				if t < T:
 					# 在每一轮开始之前，已经知道了上一轮状态、上一轮的action、上一轮action后的reward
 					# 现在需要进行的是1.根据上次行动的结果reward和running_flag来判断是否结束
 					# 2.执行上一轮根据当前状态得到的action
@@ -229,6 +229,7 @@ class Dodger(object):
 						# act (move or wait)
 						self.agent_host.sendCommand(A[-1])
 						time.sleep(self.sleep_time)
+						self.agent_host.sendCommand('move 0')
 						
 						# get reward and check if episode is finished 
 						r, success = self.get_reward(obs, A[-1])
@@ -252,7 +253,6 @@ class Dodger(object):
 					break
 				if len_epi >= 0:
 					self.update_q_table(len_epi, S, A, R, T)
-
 
 		return total_reward, success
 

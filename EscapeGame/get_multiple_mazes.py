@@ -2,7 +2,10 @@
 
 #!/usr/bin/env python
 from builtins import range
-import MalmoPython
+try:
+    import MalmoPython
+except ImportError:
+    import malmo.MalmoPython as MalmoPython
 import os
 import sys
 import time
@@ -16,8 +19,11 @@ for i in range(40): #rotation makes 3 more maps
     all_xml.extend(xml)
 
 n = len(all_xml)
+maze_dir = './maze'
+if not os.path.exists(maze_dir):
+    os.makedirs(maze_dir)
 for i in range(n):
-    fn = "maze{0}.xml".format(i)
+    fn = "./maze/maze{0}.xml".format(i)
     f= open(fn,"w")
     XML = '''
     <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
@@ -71,7 +77,7 @@ for i in range(n):
                               <Height>480</Height>
                           </VideoProducer>
                           <ObservationFromGrid>
-                              <Grid name="floor10x10">
+                              <Grid name="floor13x13">
                                   <min x="-6" y="0" z="-6"/>
                                   <max x="6" y="0" z="6"/>
                               </Grid>
@@ -95,5 +101,3 @@ for i in range(n):
                   </AgentSection>
                 </Mission> '''.format(all_xml[i])
     f.write(XML)
-
-
