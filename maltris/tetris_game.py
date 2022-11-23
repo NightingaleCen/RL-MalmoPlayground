@@ -1,9 +1,4 @@
-from malmo import MalmoPython
-import os
-import sys
-import time
 from random import randrange as rand
-import copy
 
 rewards_map = {'inc_height': -8, 'clear_line': 100, 'holes': -5, 'top_height': -100}
 
@@ -21,7 +16,7 @@ tetris_shapes = [
     [[0, 0],
      [2, 2]],
 
-    [[3, 0],
+    [[0, 3],
      [3, 0]],
 
     [[0, 4],
@@ -103,9 +98,6 @@ class TetrisGame:
             self.gameover = True
 
     def move(self, delta_x):
-        ########################################
-        ######TODO: fill your code here#########
-        ########################################
         if not self.gameover:
             new_x = self.piece_x + delta_x
             if new_x < 0:
@@ -128,13 +120,11 @@ class TetrisGame:
                 self.new_piece()
 
                 check_board = True
-                clear_rows = 0
                 while check_board:
                     check_board = False
                     for i, row in enumerate(self.board[:-1]):
                         if 0 not in row:
                             self.board = remove_row(self.board, i)
-                            # print("oh yeah! one line cleared!")
                             self.draw_piece2(self.board[:-1])
                             self.line_clears += 1
                             check_board = True
@@ -198,9 +188,6 @@ class TetrisGame:
             self.gameover = False
 
     def draw_piece(self):
-        ########################################
-        ######TODO: fill your code here#########
-        ########################################
         for cy, row in enumerate(self.piece):
             for cx, col in enumerate(row):
                 if col != 0:
@@ -209,10 +196,6 @@ class TetrisGame:
         return
 
     def draw_piece2(self, piece, x=0):
-        ########################################
-        ######TODO: fill your code here#########
-        ########################################
-
         for cy, row in enumerate(piece):
             for cx, col in enumerate(row):
                 if col != 0:

@@ -49,9 +49,6 @@ missionXML = '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 
 
 def magic(X):
-    # for i in X:
-    #     print(i)
-    # print(''.join(str(i) for i in X))
     return ''.join(str(i) for i in X)
 
 
@@ -91,9 +88,8 @@ class TetrisAI:
         self.listClears = pickle.load(f2, encoding='iso-8859-1')
         f2.close()
 
-    def run(self, agent_host):
+    def run(self):
         states, actions, rewards = deque(), deque(), deque()
-        curr_reward = 0
         done_update = False
         game_overs = 0
         self.loadQtable()  # uncomment to load Q-table values
@@ -102,30 +98,16 @@ class TetrisAI:
             init_state = self.get_curr_state()
             possible_actions = self.get_possible_actions()
             next_action = self.choose_action(init_state, possible_actions)
-            # print("init_state", init_state)
             states.append(init_state)
             actions.append(self.normalize(self.pred_insta_drop2(next_action)))
-            # actions.append(next_action)
-            # print("actions", actions)
             rewards.append(0)
 
-            # T = sys.maxsize
             T = 5000
-            print("maxsize T:", T)
             for t in range(T):
-                with open('qtables/' + str(t) + '.txt', 'w') as file:
-                    file.write(str(self.q_table))
-                # print("episode{}".format(str(t)))
-                time.sleep(0.05)
+                time.sleep(1)
                 if t < T:
                     curr_reward = self.act(next_action)
                     rewards.append(curr_reward)
-                    # curr_state = copy.deepcopy(self.get_curr_state())
-                    # # print("now_state", curr_state)
-                    # states.append(curr_state)
-                    # next_action = self.choose_action(curr_state, self.get_possible_actions())
-                    # actions.append(next_action)
-                    # time.sleep(0.5)
 
                     if self.game.gameover == True:
                         self.listGameLvl.append(self.game.level)
@@ -143,15 +125,10 @@ class TetrisAI:
                                   " avg clears: ", numpy.mean(self.listClears))
                             game_overs = 0
 
-                    ########################################
-                    ######TODO: fill your code here#########
-                    ########################################
                     curr_state = copy.deepcopy(self.get_curr_state())
-                    # print("now_state", curr_state)
                     states.append(curr_state)
                     next_action = self.choose_action(curr_state, self.get_possible_actions())
                     actions.append(self.normalize(self.pred_insta_drop2(next_action)))
-                    # time.sleep(0.5)
 
                 tau = t - self.n + 1
                 if tau >= 0:
@@ -179,8 +156,6 @@ class TetrisAI:
             self.game.rotate_piece()
         # 旋转好了之后，一路下落
         self.game.move(action[0] - self.game.piece_x)
-        # m_score = self.score(self.pred_insta_drop2(action))
-        # self.game.insta_drop_no_draw()
         old_lines = self.game.line_clears
         self.game.insta_drop()
         new_lines = self.game.line_clears
@@ -218,12 +193,8 @@ class TetrisAI:
                     return new_state
 
     def get_possible_actions(self):
-        # get_possible_actions定义的action可能有点问题？没问题！
         actions = []
         action = (0, 0)
-        ########################################
-        ######TODO: fill your code here#########
-        ########################################
         # 旋转检查
         for i in range(4):
             piece_x = 0
@@ -246,39 +217,18 @@ class TetrisAI:
         current_r = 0
         complete_lines = 0
         highest = 0
-
-        ########################################
-        ######TODO: fill your code here#########
-        ########################################
         new_board = board[-2::-1]  # 只是去除掉了最后一行！其他的倒序排列
-        # print(new_board)
         # 对完成的行给予奖励
         for row in new_board:
             if 0 not in row:
                 complete_lines += 1
                 # print("complete lines!+1")
         current_r += complete_lines * rewards_map['clear_line']
-        # print(current_r)
-
-        # 倒序查找最低的全0行
-        for i, row in enumerate(new_board):
-            if all(j == 0 for j in row):
-                highest = i
-
-        # 对最高层过高给予惩罚
-        # current_r += (highest - 2) * rewards_map['top_height']
-
         heights = zeros((len(new_board[0]),), dtype=int)
         for i, row in enumerate(new_board):
             for j, col in enumerate(row):
                 if col != 0:
                     heights[j] = i + 1
-        # 对累计层数给予惩罚
-        # aggregate_height = sum(heights)
-        # current_r += aggregate_height * rewards_map['inc_height']
-        print("score", current_r)
-        # if current_r > 100:
-            # print("clear one line!")
 
         return current_r
 
@@ -342,10 +292,6 @@ class TetrisAI:
 
     def choose_action(self, state, possible_actions):
         curr_state = magic(state)
-        # print("current state", curr_state)
-        #######################################
-        ######TODO: fill your code here#########
-        ########################################
         # 没出现过的新state，加入q_table
         if curr_state not in self.q_table:
             self.q_table[curr_state] = {}
@@ -373,9 +319,6 @@ class TetrisAI:
 
     def update_q_table(self, tau, S, A, R, T):
         curr_s, curr_a, curr_r = magic(S.popleft()), A.popleft(), R.popleft()
-        ########################################
-        ######TODO: fill your code here#########
-        ########################################
         state = magic(curr_a)
         G = sum([self.gamma ** i * R[i] for i in range(len(S))])
         if tau + self.n < T:
@@ -450,5 +393,5 @@ if __name__ == "__main__":
     my_AI = TetrisAI(my_game)
     print("n=", n)
     for n in range(numIter):
-        my_AI.run(agent_host)
+        my_AI.run()
     print(my_AI.q_table)

@@ -1,113 +1,94 @@
 from __future__ import print_function
-import os
-import sys
-import time
-import datetime
-import json
+import copy
 import numpy as np
-from keras.models import Sequential
-from keras.layers.core import Dense, Activation
-from keras.optimizers import SGD, Adam, RMSprop
-from keras.layers.advanced_activations import PReLU
-
-# Exploration factor
-epsilon = 0.1
+import torch
+import logging
 
 
 class Experience(object):
-    def __init__(self, model, max_memory=100, discount=0.95):
+    def __init__(self, model, max_memory=100000, discount=0.95):
         self.model = model
         self.max_memory = max_memory
         self.discount = discount
         self.memory = list()
-        self.num_actions = model.output_shape[-1]
+        self.train_samples = 20
+        self.train_count = 0
+        self.num_actions = 7
+        self.target_model = copy.deepcopy(model)
+
+    # def kickoff(self, episode):
+    #     rewards = []
+    #     for m in self.memory:
+    #         rewards.append(m[2])
+    #     rewards = np.array(rewards)
+    #     args = np.argpartition(rewards, 10)[:10]
+    #     if episode[2] < rewards[args[0]]:
+    #         return False
+    #     index = np.random.randint(0, 10)
+    #     print("kickoff reward:" + str(rewards[args[index]]))
+    #     logging.info("kickoff reward:" + str(rewards[args[index]]))
+    #     del self.memory[args[index]]
+    #     return True
 
     def remember(self, episode):
         # episode = [envstate, action, reward, envstate_next, game_over]
-        # memory[i] = episode
-        # envstate == flattened 1d maze cells info, including rat cell (see method: observe)
-
+        envstate, action, reward, envstate_next, game_over = episode
+        x, z = envstate[0], envstate[1]
+        x = int(x)
+        z = int(z)
+        if z == 0 and x <= 7 and action == 0:
+            reward -= 30
+        elif z <= -4 and action == 0:
+            reward -= 30
+        elif z >= 19 and action == 1:
+            reward -= 30
+        elif x == 0 and action == 3:
+            reward -= 30
+        elif x >= 19 and action == 2:
+            reward -= 30
+        elif x == int(envstate_next[0]) and z == int(envstate_next[1]):
+            return
+        reward /= 100   # smoothing
+        episode = (envstate, action, reward, envstate_next, game_over)
+        if len(self.memory) < self.max_memory:
+            self.memory.append(episode)
+        else:
+            # if self.kickoff(episode):  # kickoff不太奏效！
+            del self.memory[0]
+            self.memory.append(episode)
 
     def predict(self, envstate):
+        if envstate is not None:
+            return self.model(envstate)
 
+    def train(self, criterion, optimizer, epoch=10):
+        inputs = []
+        targets = []
+        actions = []
+        # 随机选取20条经验
+        for i in range(self.train_samples):
+            e_num = np.random.choice(range(len(self.memory)))
+            e = self.memory[e_num]
+            state, action, reward, state_next, game_over = e
+            inputs.append(state)
+            # 利用target网络，计算回报的预测值
+            q_next = self.target_model(state_next).cpu().detach()
+            target = reward + self.discount * q_next.max(0)[0].data.numpy()
+            targets.append(target)
+            actions.append([action])
 
-    def get_data(self, data_size=10):
-        # envstate 1d size (1st element of episode
- 
-
-
-def qtrain(model, world):
-
-
-
-def setupMission():
-    mission_file = './farm.xml'
-    global my_mission, my_mission_record
-    with open(mission_file, 'r') as f:
-        print("Loading mission from %s" % mission_file)
-        mission_xml = f.read()
-        my_mission = MalmoPython.MissionSpec(mission_xml, True)
-
-    my_mission_record = MalmoPython.MissionRecordSpec()
-
-
-# Attempt to start a mission:
-def startMission():
-    max_retries = 3
-    for retry in range(max_retries):
-        try:
-            agent_host.startMission(my_mission, my_mission_record)
-            break
-        except RuntimeError as e:
-            if retry == max_retries - 1:
-                print("Error starting mission:", e)
-                exit(1)
-            else:
-                time.sleep(2)
-
-# Loop until mission starts:
-
-
-def waitUntilMissionStart():
-    print("Waiting for the mission to start ", end=' ')
-    world_state = agent_host.getWorldState()
-    while not world_state.has_mission_begun:
-        print(".", end="")
-        time.sleep(0.1)
-        world_state = agent_host.getWorldState()
-        for error in world_state.errors:
-            print("Error:", error.text)
-
-    print()
-    print("Mission running ", end=' ')
-
-
-def missionLoop(model, world):
-    world_state = agent_host.getWorldState()
-    my_agent = MyAgent(world_state)
-    while world_state.is_mission_running:
-        time.sleep(0.1)
-        world_state = agent_host.getWorldState()
-        my_agent.updateWorldState(world_state)
-        if my_agent.takeAction():
-            print(my_agent.takeAction())
-            agent_host.sendCommand(my_agent.takeAction())
-        for error in world_state.errors:
-            print("Error:", error.text)
-    print()
-    print("Mission ended")
-# Mission has ended.
-
-
-if __name__ == "__main__":
-    world = World()
-    model = build_model(world.world)
-    setupMission()
-    startMission()
-    waitUntilMissionStart()
-    missionLoop(model, world)
-
-if __name__ == "__main__":
-    world = World()
-    model = build_model(world.world)
-    qtrain(model, world)
+        actions = torch.LongTensor(actions).to("cuda:0")
+        # 进行训练
+        for t in range(epoch):
+            self.train_count += 1
+            reward_pred = self.model(inputs).gather(1, actions).permute(1, 0)[0]
+            reward_target = torch.FloatTensor(np.array(targets)).to("cuda:0")
+            loss = criterion(reward_pred, reward_target)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        if self.train_count % 1000 == 0:
+            # 每隔1000代，target网络更新一次
+            logging.info("update target net")
+            self.target_model = copy.deepcopy(self.model)
+        return loss
